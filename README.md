@@ -27,7 +27,7 @@ conda activate proviot
 
 ### ProvIot
 
-* [proviot.py](AE/provIoT.py)
+* [provIoT.py](AE/provIoT.py)
   * Driver script for ProvIoT, which is an Autoencoder-based IDS that detects anomalous paths.
   * Sample causal paragraphs and feature vectors for APT attack available in [anomaly-paragraph](data/example-paragraph/anomaly-paragraph.csv) directory.
   
