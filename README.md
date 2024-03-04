@@ -15,7 +15,7 @@ Reproducibility artifacts for the paper _ProvIoT: Detecting Stealthy Attacks in 
 
 * [proviot.py](AE/provIoT.py)
   * Driver script for ProvIoT, which is an Autoencoder-based IDS that detects anomalous paths.
-  * Sample causal paragraphs and feature vectors for APT attack using _EXCEL.EXE_ available in [anomaly-paragraph](data/example-paragraph/anomaly-paragraph.csv) directory.
+  * Sample causal paragraphs and feature vectors for APT attack available in [anomaly-paragraph](data/example-paragraph/anomaly-paragraph.csv) directory.
   
 Running the ProvIoT script:
 
