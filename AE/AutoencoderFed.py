@@ -4,47 +4,31 @@ import random
 from pathlib import Path
 
 import tensorflow as tf
-from tensorflow.keras.models import Sequential, load_model, save_model
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Dense
-from tensorflow.keras import backend as K
+from keras.models import Sequential, load_model, save_model
+from keras.layers import Activation
+from keras.layers import Dense
+from keras import backend as K
 
 
 from AutoencoderUtils import AutoencoderUtils
 
 
 modelsBase = Path("./models/")
-logBase = Path("./logs/")
 
-EPOCH = 2
-COMM_ROUND = 2
+EPOCH = 50
+COMM_ROUND = 5
 NUM_CLIENTS = 10
 
 
 class AutoencoderFed():
 
-    def __init__(self, trainFilename, anomolyFilename):
-        print("DEBUG: AutoencoderFed init")
+    def __init__(self, trainFilename, anomolyFilename, log):
         self.trainFilename = trainFilename
         self.anomalyFilename = anomolyFilename
-        self.autoencoderUtils = AutoencoderUtils()
-        self.uniqueName = self.generateUniqueName()
+        self.autoencoderUtils = AutoencoderUtils(log)
         self.modelFilename = modelsBase / "AE.h5"
-        self.logFile = logBase / f"{self.uniqueName}.log"
-
-    def startLog(self):
-        self.old_stdout = sys.stdout
-        self.log_file = open(self.logFile, "w")
-        sys.stdout = self.log_file
-
-    def endLog(self):
-        sys.stdout = self.old_stdout
-        self.log_file.close()
-
-    def generateUniqueName(self):
-        now = datetime.datetime.now()
-
-        return now.strftime("%Y%m%d%H%M%S")
+        self.log = log
+        self.log.info("DEBUG: AutoencoderFed init")
 
     def create_clients(self, data, num_clients, initial):
         # create a list of client names
@@ -109,8 +93,6 @@ class AutoencoderFed():
         return model
 
     def run(self):
-        self.startLog()
-
         x_train, x_test, x_abnormal = self.autoencoderUtils.getData(self.trainFilename, self.anomalyFilename)
 
         clients = self.create_clients(x_train, num_clients=NUM_CLIENTS, initial='client')
@@ -140,7 +122,7 @@ class AutoencoderFed():
                 local_model.set_weights(global_weights)
 
                 x_val = tf.data.Dataset.from_tensor_slices((list(x_test), list(x_test))).batch(len(list(x_test)))
-                print('Current Training', client)
+                self.log.info(f'Current Training= {client}')
                 local_model.fit(clients_batched[client], validation_data=x_val, epochs=EPOCH, verbose=1)
 
                 scaling_factor = self.weight_scalling_factor(clients_batched, client)
@@ -157,5 +139,3 @@ class AutoencoderFed():
         model = load_model(self.modelFilename)
 
         self.autoencoderUtils.driver(model, 'Federated', self.trainFilename, self.anomalyFilename)
-        self.endLog()
-

@@ -2,6 +2,7 @@
 
 Reproducibility artifacts for the paper _ProvIoT: Detecting Stealthy Attacks in IoT through Federated Edge-Cloud Security_.
 
+
 ## Folder structure
 
 | Folder | Description|
@@ -10,6 +11,19 @@ Reproducibility artifacts for the paper _ProvIoT: Detecting Stealthy Attacks in 
 | `dco2vec`| Folder containing the code for doc2vec implementation. |
 | `AE`| Folder containing the code for AutoEncoder (AE) execution. |
 
+### Environment Setup
+
+We will use `conda` as the python environment manager. Install the project dependencies from the [proviot.yml](proviot.yml) using this command:
+
+```bash
+conda env update --name proviot --file proviot.yml
+```
+
+Activate the conda environment before running the experiments by running this command
+
+```bash
+conda activate proviot
+```
 
 ### ProvIot
 

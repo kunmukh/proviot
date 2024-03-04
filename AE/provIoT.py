@@ -16,13 +16,13 @@ log.addHandler(ch)
 
 def main():
     base = Path(f"../data/")
-    benign = base / "example-feature-vector" / "benign-fv-arch.csv"
-    anomaly = base / "example-feature-vector" / "anomaly-fv-arch.csv"
+    benign = base / "example-feature-vector" / "benign-fv.csv"
+    anomaly = base / "example-feature-vector" / "anomaly-fv.csv"
 
     log.info(f"DEBUG: PID: {os.getpid()}")
     log.info(f"DEBUG: DIRECTORY: {str('/'.join(os.listdir()))}")
 
-    autoencoder = AutoencoderFed(benign, anomaly)
+    autoencoder = AutoencoderFed(benign, anomaly, log)
     autoencoder.run()
 
 
