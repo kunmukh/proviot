@@ -1,7 +1,7 @@
 ## ProvIot
 
 ### Instructions to run [ProvIoT](provIoT.py)
-- Driver script for PreovIoT, which is an AE based IDS that detects anomalous paths using graph attributes, e.g., node/edge labels.
+- Driver script for ProvIoT, which is an AE based IDS that detects anomalous paths using graph attributes, e.g., node/edge labels.
 ```commandline
 python provIoT.py
 ```
