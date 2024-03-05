@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
@@ -7,45 +8,39 @@ from sklearn.model_selection import train_test_split
 
 class AutoencoderUtils():
 
-    def __init__(self, log):
+    def __init__(self, log, percentile=0.85):
         self.log = log
+        self.percentile = percentile
+
         self.log.debug("DEBUG: AutoencoderUtils init")
-        self.log = log
 
-    def getData(self, fileNameTrain, fileNameAbnormal):
+    def getData(self, train_file, anomalous_file):
 
-        x_train_df = pd.read_csv(fileNameTrain)
-        x_abnormal_df = pd.read_csv(fileNameAbnormal, header=None)
+        x_train_df = pd.read_csv(train_file)
+        x_abnormal_df = pd.read_csv(anomalous_file, header=None)
 
         x_train = x_train_df.values
-        x_abnormal = x_abnormal_df.values
+        x_anomaly = x_abnormal_df.values
 
         self.log.debug("DEBUG:x_train:" + str(len(x_train)))
-        self.log.debug("DEBUG:x_abnormal:" + str(len(x_abnormal)))
+        self.log.debug("DEBUG:x_anomaly:" + str(len(x_anomaly)))
 
         x_train, x_test = train_test_split(x_train, test_size=0.2)
 
-        return x_train, x_test, x_abnormal
+        return x_train, x_test, x_anomaly
 
-    def showloss(self, x_test, x_abnormal, model):
-        x_concat = np.concatenate([x_test, x_abnormal], axis=0)
-        losses = []
-        for x in x_concat:
-            x = np.expand_dims(x, axis=0)
-            loss = model.test_on_batch(x, x)
-            losses.append(loss[0])
+    def getThreasholdTrain(self, autoencoder, x):
+        predictions = autoencoder.predict(x)
+        mse = np.mean(np.power(x - predictions, 2), axis=1)
 
-        plt.plot(len(losses), losses, linestyle='-', linewidth=1, label="normal data", color='blue')
-        plt.plot(len(losses), losses, linestyle='-', linewidth=1, label="anomaly data", color='red')
+        threshold = np.quantile(mse, self.percentile)
 
-        plt.title("Reconstruction error for different classes")
-        plt.ylabel("Reconstruction error")
-        plt.xlabel("Data point index")
+        return threshold
 
-    def plotLoss(self, autoencoder, X_test, y_test, threshold, modelName):
+    def plotLoss(self, autoencoder, x_test, y_test, threshold, model_name):
 
-        predictions = autoencoder.predict(X_test)
-        mse = np.mean(np.power(X_test - predictions, 2), axis=1)
+        predictions = autoencoder.predict(x_test)
+        mse = np.mean(np.power(x_test - predictions, 2), axis=1)
 
         error_df = pd.DataFrame(list(zip(list(mse.values.reshape(1, len(mse))[0]),
                                          list(y_test.values.reshape(1, len(y_test))[0]))),
@@ -65,14 +60,14 @@ class AutoencoderUtils():
         f1 = (2 * recall * precision) / (recall + precision)
         accuracy = 1. * (tp + tn) / (tp + tn + fp + fn)
 
-        self.log.info('TP:' + str(tp))
-        self.log.info('FP:' + str(fp))
-        self.log.info('TN:' + str(tn))
-        self.log.info('FN:' + str(fn))
-        self.log.info('Accuracy:' + str(accuracy))
-        self.log.info('Precision:' + str(precision))
-        self.log.info('Recall:' + str(recall))
-        self.log.info('F1:' + str(f1))
+        self.log.info('TP:' + str(np.round(tp, 3)))
+        self.log.info('FP:' + str(np.round(fp, 3)))
+        self.log.info('TN:' + str(np.round(tn, 3)))
+        self.log.info('FN:' + str(np.round(fn, 3)))
+        self.log.info('Accuracy:' + str(np.round(accuracy, 3)))
+        self.log.info('Precision:' + str(np.round(precision, 3)))
+        self.log.info('Recall:' + str(np.round(recall, 3)))
+        self.log.info('F1:' + str(np.round(f1, 3)))
 
         groups = error_df.groupby('true_class')
 
@@ -85,33 +80,24 @@ class AutoencoderUtils():
         ax.hlines(threshold, ax.get_xlim()[0], ax.get_xlim()[1], colors="green",
                   zorder=100, label='Threshold=' + str(np.round(threshold, 3)))
         ax.legend()
-        plt.title(modelName + " Reconstruction error| Accuracy= " + str(np.round(accuracy,3)))
+        plt.title(model_name + " | F1 = " + str(np.round(f1, 3)))
         plt.ylabel("Reconstruction error")
         plt.xlabel("Data")
 
-    def getThreasholdTrain(self, autoencoder, X):
+        plt.savefig(Path('figs') / 'f1.png')
+        self.log.info(f"F1 plot saved in {Path('figs') / 'f1.png'}")
 
-        predictions = autoencoder.predict(X)
-        mse = np.mean(np.power(X - predictions, 2), axis=1)
+    def driver(self, model, model_name, train, anomaly):
 
-        PERCENTILE = 0.85
-        threshold = np.quantile(mse, PERCENTILE)
-
-        return threshold
-
-    def driver(self, model, modelName, train, ano):
-
-        x_train, x_test, x_abnormal = self.getData(train, ano)
+        x_train, x_test, x_abnormal = self.getData(train, anomaly)
 
         x_test = x_test[:len(x_abnormal)]
-        x_abnormal = x_abnormal[:len(x_test)]
 
         threshold = self.getThreasholdTrain(model, pd.DataFrame(x_train))
 
-        X_test = pd.DataFrame(np.concatenate([x_test, x_abnormal], axis=0))
-        Y_test = pd.DataFrame([0 for _ in range(len(x_test))]+[1 for _ in range(len(x_abnormal))])
+        x_combine = pd.DataFrame(np.concatenate([x_test, x_abnormal], axis=0))
+        y_test = pd.DataFrame([0 for _ in range(len(x_test))]+[1 for _ in range(len(x_abnormal))])
 
-        self.plotLoss(model, X_test, Y_test, threshold, modelName)
+        self.plotLoss(model, x_combine, y_test, threshold, model_name)
 
-        self.log.info(f'Threshold = {threshold}')
-        plt.show()
+        self.log.info(f'Threshold = {np.round(threshold,3)}')
