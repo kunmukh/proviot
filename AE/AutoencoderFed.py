@@ -11,7 +11,7 @@ from AutoencoderUtils import AutoencoderUtils
 
 class AutoencoderFed():
 
-    def __init__(self, train_file, anomalous_file, log, epoch=50, num_clients=10, comm_round=5, percentile=0.85):
+    def __init__(self, train_file, anomalous_file, log, epoch=20, num_clients=10, comm_round=5, percentile=0.85):
         self.train_file = train_file
         self.anomalous_file = anomalous_file
         self.log = log
