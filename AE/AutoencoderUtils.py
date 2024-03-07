@@ -91,7 +91,7 @@ class AutoencoderUtils():
 
         x_train, x_test, x_abnormal = self.getData(train, anomaly)
 
-        x_test = x_test[:len(x_abnormal)]
+        x_test = x_test
 
         threshold = self.getThreasholdTrain(model, pd.DataFrame(x_train))
 
