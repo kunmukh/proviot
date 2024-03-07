@@ -38,7 +38,7 @@ def main():
 
     # build a model
     # model initialization - I
-    model = gensim.models.doc2vec.Doc2Vec(vector_size=MAX_FEATURE, min_count=1, epochs=25, dm=1, workers=4)
+    model = gensim.models.doc2vec.Doc2Vec(vector_size=MAX_FEATURE, min_count=1, epochs=100, dm=1, workers=4)
     model.build_vocab(train_corpus)
 
     # model train - II

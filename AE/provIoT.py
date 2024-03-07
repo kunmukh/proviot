@@ -22,7 +22,12 @@ def main():
     log.info(f"DEBUG: PID: {os.getpid()}")
     log.info(f"DEBUG: DIRECTORY: {str('/'.join(os.listdir()))}")
 
-    autoencoder = AutoencoderFed(benign, anomaly, log)
+    epoch = 50
+    num_clients = 10
+    comm_round = 5
+    percentile = 0.90
+
+    autoencoder = AutoencoderFed(benign, anomaly, log, epoch, num_clients, comm_round, percentile)
     autoencoder.run()
 
 
