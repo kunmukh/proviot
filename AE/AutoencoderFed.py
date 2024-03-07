@@ -1,36 +1,31 @@
-import sys
-import datetime
 import random
 from pathlib import Path
 
 import tensorflow as tf
 from keras.models import Sequential, load_model, save_model
-from keras.layers import Activation
-from keras.layers import Dense
+from keras.layers import Activation, Dense
 from keras import backend as K
-
 
 from AutoencoderUtils import AutoencoderUtils
 
 
-modelsBase = Path("./models/")
-
-EPOCH = 50
-COMM_ROUND = 5
-NUM_CLIENTS = 10
-
-
 class AutoencoderFed():
 
-    def __init__(self, trainFilename, anomolyFilename, log):
-        self.trainFilename = trainFilename
-        self.anomalyFilename = anomolyFilename
-        self.autoencoderUtils = AutoencoderUtils(log)
-        self.modelFilename = modelsBase / "AE.h5"
+    def __init__(self, train_file, anomalous_file, log, epoch=20, num_clients=10, comm_round=5, percentile=0.85):
+        self.train_file = train_file
+        self.anomalous_file = anomalous_file
         self.log = log
+        self.epoch = epoch
+        self.num_clients = num_clients
+        self.comm_round = comm_round
+        self.percentile = percentile
+
+        self.autoencoderUtils = AutoencoderUtils(self.log, self.percentile)
+        self.modelFilename = Path("./models/") / "AE.h5"
+
         self.log.info("DEBUG: AutoencoderFed init")
 
-    def create_clients(self, data, num_clients, initial):
+    def createClients(self, data, num_clients, initial):
         # create a list of client names
         client_names = ['{}_{}'.format(initial, i + 1) for i in range(num_clients)]
 
@@ -45,12 +40,12 @@ class AutoencoderFed():
 
         return {client_names[i]: shards[i] for i in range(len(client_names))}
 
-    def batch_data(self, data_shard, bs=32):
+    def batchData(self, data_shard, bs=32):
         dataset = tf.data.Dataset.from_tensor_slices((list(data_shard), list(data_shard)))
 
         return dataset.shuffle(len(list(data_shard))).batch(bs)
 
-    def weight_scalling_factor(self, clients_trn_data, client_name):
+    def weightScallingFactor(self, clients_trn_data, client_name):
         client_names = list(clients_trn_data.keys())
 
         bs = list(clients_trn_data[client_name])[0][0].shape[0]
@@ -61,10 +56,10 @@ class AutoencoderFed():
 
         return local_count / global_count
 
-    def scale_model_weights(self, weight, scalar):
+    def scaleModelWeights(self, weight, scalar):
         return [scalar * w_i for w_i in weight]
 
-    def sum_scaled_weights(self, scaled_weight_list):
+    def sumScaledWeights(self, scaled_weight_list):
         avg_grad = list()
 
         for grad_list_tuple in zip(*scaled_weight_list):
@@ -73,7 +68,7 @@ class AutoencoderFed():
 
         return avg_grad
 
-    def build(self, input_dim):
+    def buildModel(self, input_dim):
         encoding_dim = int(input_dim / 2)
         hidden_dim = int(encoding_dim / 2)
 
@@ -93,49 +88,49 @@ class AutoencoderFed():
         return model
 
     def run(self):
-        x_train, x_test, x_abnormal = self.autoencoderUtils.getData(self.trainFilename, self.anomalyFilename)
+        x_train, x_test, x_abnormal = self.autoencoderUtils.getData(self.train_file, self.anomalous_file)
 
-        clients = self.create_clients(x_train, num_clients=NUM_CLIENTS, initial='client')
+        clients = self.createClients(x_train, num_clients=self.num_clients, initial='client')
 
         clients_batched = dict()
         for (client_name, data) in clients.items():
-            clients_batched[client_name] = self.batch_data(data)
+            clients_batched[client_name] = self.batchData(data)
 
         # create optimizer constants
         loss = 'mean_squared_error'
         metrics = ['accuracy']
         optimizer = 'adam'
 
-        global_model = self.build(x_train.shape[1])
+        global_model = self.buildModel(x_train.shape[1])
 
         # commence global training loop
-        for comm_round in range(COMM_ROUND):
+        for comm_round in range(self.comm_round):
             global_weights = global_model.get_weights()
             scaled_local_weight_list = list()
             client_names = list(clients_batched.keys())
             random.shuffle(client_names)
 
             for client in client_names:
-                local_model = self.build(x_train.shape[1])
+                local_model = self.buildModel(x_train.shape[1])
                 local_model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
 
                 local_model.set_weights(global_weights)
 
                 x_val = tf.data.Dataset.from_tensor_slices((list(x_test), list(x_test))).batch(len(list(x_test)))
                 self.log.info(f'Current Training= {client}')
-                local_model.fit(clients_batched[client], validation_data=x_val, epochs=EPOCH, verbose=1)
+                local_model.fit(clients_batched[client], validation_data=x_val, epochs=self.epoch, verbose=1)
 
-                scaling_factor = self.weight_scalling_factor(clients_batched, client)
-                scaled_weights = self.scale_model_weights(local_model.get_weights(), scaling_factor)
+                scaling_factor = self.weightScallingFactor(clients_batched, client)
+                scaled_weights = self.scaleModelWeights(local_model.get_weights(), scaling_factor)
                 scaled_local_weight_list.append(scaled_weights)
 
                 K.clear_session()
 
-            average_weights = self.sum_scaled_weights(scaled_local_weight_list)
+            average_weights = self.sumScaledWeights(scaled_local_weight_list)
 
             global_model.set_weights(average_weights)
 
         save_model(global_model, str(self.modelFilename))
         model = load_model(self.modelFilename)
 
-        self.autoencoderUtils.driver(model, 'Federated', self.trainFilename, self.anomalyFilename)
+        self.autoencoderUtils.driver(model, 'Federated', self.train_file, self.anomalous_file)
